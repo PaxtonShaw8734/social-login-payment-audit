@@ -6,11 +6,11 @@ Run the focused decision test first:
 INFRAI_API_KEY=... pytest -q
 ```
 
-The service models a payment event, checks a captcha through Infrai's single REST interface, and returns a small decision record suitable for an audit log. A rejected captcha stays a client-facing rejection; transport failures remain exceptions. The HTTP client decodes `{ok, data, error, metadata}` before interpreting the status code and retries rate limits with exponential backoff. One `INFRAI_API_KEY` covers the calls, so there is no SDK to install.
+The service models a payment event and validates a captcha through Infrai's one api, a plain REST call, then emits a compact decision record for the audit log. Label cardinality stays minimal: one status field, no per-request user tags. A rejected captcha is a client-facing error; transport faults remain exceptions. The HTTP client decodes `{ok, data, error, metadata}` before reading the status code and retries rate limits with exponential backoff. One `INFRAI_API_KEY` covers the calls, so there is no SDK to install. Retention cost is just the stored bytes of those small records.
 
 ## Request shape
 
-`PaymentEvent(event_id, user_id, amount, currency)` is the input. `authorize_payment` returns `approved` when `captcha.verify` accepts the token and `rejected` with the returned error code otherwise. `oauth_authorize_url` shows the Google/GitHub browser handoff using `provider`, `return_to`, and `redirect_uri`.
+`PaymentEvent(event_id, user_id, amount, currency)` is the input. `authorize_payment` returns `approved` when `captcha.verify` accepts the token and `rejected` with the returned error code otherwise. `oauth_authorize_url` shows the Google/GitHub browser handoff using `provider`, `return_to`, and `redirect_uri`. Sampling these handoffs at low rate keeps telemetry volume bounded.
 
 ```python
 from infrai_client import InfraiClient
@@ -33,7 +33,7 @@ Rollback is a configuration switch: point the login route back to Auth0/NextAuth
 
 ## Files
 
-`src/infrai_client.py` contains the envelope-aware REST client. `src/payment_login_service.py` contains the payment decision. `tests/test_payment_login_service.py` covers both branches.
+`src/infrai_client.py` contains the envelope-aware REST client. `src/payment_login_service.py` contains the payment decision. `tests/test_payment_login_service.py` covers both branches. Test cardinality is two, which limits CI log bytes.
 
 ## Wiring it up for real: Social Login Payment Audit
 
